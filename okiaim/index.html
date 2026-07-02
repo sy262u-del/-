@@ -78,8 +78,8 @@
             top: 50%;
             display: none; 
             z-index: 5;
-            width: 90px; height: 180px; 
-            transform: translateY(-49%); 
+            width: 120px; height: 240px; 
+            transform: translateY(-45%); 
         }
 
         /* 🧱 壁 */
@@ -98,8 +98,8 @@
         #score-board {
             position: absolute;
             top: 25px;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 20px; /* 左端に移動 */
+            transform: none; /* 中央寄せを解除 */
             color: #ece8e1;
             text-align: center;
             z-index: 15;
@@ -371,11 +371,11 @@
             <div class="skin-container">
                 <div class="skin-card active" data-skin="1.png">
                     <div class="tier-tag">PREMIUM</div>
-                    <span>REAVER VANDAL</span>
+                    <span>PRIME VANDAL</span>
                 </div>
                 <div class="skin-card" data-skin="2.png">
                     <div class="tier-tag" style="color: #8f9aa6;">STANDARD</div>
-                    <span>DEFAULT VANDAL</span>
+                    <span>RGX VANDAL</span>
                 </div>
             </div>
 
@@ -435,7 +435,7 @@
         let currentSkinImage = '1.png'; 
         
         // 🏃‍♂️ 敵が通り過ぎる時間をさらに遅く（4.2秒 ➔ 6.0秒）に調整しました
-        const FIX_SPEED = 6.0; 
+        const FIX_SPEED = 5.5; 
 
         toGameBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -606,3 +606,76 @@
             initNextSpawn();
         }
     </script></body></html>
+    <!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>okiaim - Leaderboard Edition</title>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        // ⚠️ ここを自分のFirebase設定に書き換える
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // スキン切り替えロジック
+        window.changeSkin = (skin) => {
+            const weaponSkin = document.getElementById('weapon-skin');
+            weaponSkin.style.backgroundImage = `url('${skin}.png')`;
+            // 音声切り替え処理をここに追加
+        };
+
+        // リーダーボード表示（リアルタイム）
+        const q = query(collection(db, "scores"), orderBy("score", "desc"), limit(5));
+        onSnapshot(q, (snapshot) => {
+            const list = document.getElementById('leaderboard-list');
+            list.innerHTML = "";
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                list.innerHTML += `<li>${data.name}: ${data.score}</li>`;
+            });
+        });
+    </script>
+    <style>
+        /* スタイルは前回までのものを適用してください */
+        #leaderboard { position: absolute; top: 100px; right: 20px; color: white; background: rgba(0,0,0,0.5); padding: 10px; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="leaderboard">
+            <h3>TOP 5</h3>
+            <ul id="leaderboard-list"></ul>
+            <p>オンライン: <span id="user-count">1</span>人</p>
+        </div>
+
+        <select id="skin-select" onchange="changeSkin(this.value)">
+            <option value="prime">PRIME</option>
+            <option value="reva">REAVER</option>
+            <option value="vandal">VANDAL</option>
+        </select>
+        
+        <div id="weapon-skin" style="background-image: url('prime.png');"></div>
+        </div>
+</body>
+</html>
+function initNextSpawn() {
+    if(spawnTimeout) clearTimeout(spawnTimeout);
+    
+    // 待ち時間を「0.1秒〜0.3秒」にして、倒した瞬間すぐに出るように調整
+    const randomDelay = Math.random() * 200 + 100; 
+    
+    spawnTimeout = setTimeout(() => {
+        spawnAndRun();
+    }, randomDelay);
+}

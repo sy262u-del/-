@@ -1,0 +1,681 @@
+<!DOCTYPE html><html lang="ja"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>okiaim - VALORANT 置きエイム練習（ビギナー・イージー版）</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Syncopate:wght=700&family=Teko:wght=500;700&family=Barlow+Condensed:ital,wght=0,600;0,800;1,900&family=Noto+Sans+JP:wght=500;900&display=swap');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b0e11;
+            font-family: 'Barlow Condensed', 'Noto Sans JP', sans-serif;
+            letter-spacing: 0.5px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 🖼️ ゲーム画面コンテナ（ズーム105%） */
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('background.png'); 
+            background-size: 105%; 
+            background-position: 50% 50%; 
+            background-repeat: no-repeat;
+            transition: background-size 0.5s ease;
+        }
+        #game-container::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(16,21,25,0) 60%, rgba(16,21,25,0.7) 100%);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .ingame-cursor { cursor: none !important; }
+
+        /* 🎯 クロスヘア */
+        #crosshair {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 4px; height: 4px;
+            background-color: #00ffcc; 
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 10;
+            box-shadow: 0 0 8px #00ffcc;
+        }
+
+        /* 🔫 武器スキン */
+        #weapon-skin {
+            position: absolute;
+            bottom: 0; right: 0;
+            width: 100vw; height: 100vh;
+            background-image: url('1.png');
+            background-size: cover;
+            background-position: center;
+            pointer-events: none;
+            z-index: 8; 
+        }
+
+        /* 👤 敵 */
+        #enemy {
+            position: absolute;
+            background-image: url('enemy.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: bottom center;
+            top: 50%;
+            display: none; 
+            z-index: 5;
+            width: 120px; height: 240px; 
+            transform: translateY(-45%); 
+        }
+
+        /* 🧱 壁 */
+        #wall-left, #wall-right {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('wall_left.png');
+            background-size: 105%; 
+            background-position: 50% 50%;
+            pointer-events: none;
+            z-index: 6;
+        }
+        #wall-right { transform: scaleX(-1); }
+
+        /* 📊 スコアボード */
+        #score-board {
+            position: absolute;
+            top: 25px;
+            left: 20px; /* 左端に移動 */
+            transform: none; /* 中央寄せを解除 */
+            color: #ece8e1;
+            text-align: center;
+            z-index: 15;
+            display: none; 
+            background: linear-gradient(180deg, rgba(20, 27, 33, 0.9) 0%, rgba(14, 19, 23, 0.7) 100%);
+            border: 1px solid rgba(236, 232, 225, 0.12);
+            border-radius: 16px;
+            padding: 12px 45px;
+            min-width: 340px;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+        }
+        .board-label {
+            font-size: 0.7rem;
+            color: #8f9aa6;
+            font-weight: 700;
+            letter-spacing: 3px;
+            font-family: 'Syncopate', sans-serif;
+        }
+        #current-streak { 
+            color: #dc3d4b; 
+            font-size: 4.2rem; 
+            font-family: 'Teko', sans-serif;
+            font-weight: 700; 
+            line-height: 0.8;
+            margin-top: 4px;
+            display: block;
+        }
+        .best-box {
+            font-size: 0.85rem;
+            color: #ece8e1;
+            margin-top: 6px;
+            letter-spacing: 1.5px;
+        }
+        #best-streak { color: #d1b87d; font-weight: 700; } 
+        #ace-counter {
+            font-size: 0.75rem;
+            color: #d1b87d;
+            font-weight: 600;
+            display: block;
+            margin-top: 2px;
+            letter-spacing: 2px;
+        }
+        
+        .v-btn-mini {
+            padding: 5px 16px;
+            font-size: 0.75rem;
+            letter-spacing: 1.5px;
+            font-weight: 700;
+            margin-top: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(236, 232, 225, 0.15);
+            color: #8f9aa6;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+        .v-btn-mini:hover {
+            background: #dc3d4b;
+            color: #ece8e1;
+            border-color: #dc3d4b;
+            box-shadow: 0 4px 12px rgba(220, 61, 75, 0.3);
+        }
+
+        /* 💥 ミスフラッシュ */
+        @keyframes miss-flash {
+            0% { box-shadow: inset 0 0 60px rgba(220, 61, 75, 0.35); }
+            100% { box-shadow: inset 0 0 0px rgba(220, 61, 75, 0); }
+        }
+        .miss-effect { animation: miss-flash 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
+
+        /* 🖥️ オーバーレイスクリーン */
+        .overlay-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(20, 27, 33, 0.85) 0%, rgba(11, 14, 17, 0.95) 100%);
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            color: #ece8e1;
+        }
+        
+        h1 { 
+            font-size: 5.5rem; 
+            color: #ece8e1; 
+            font-family: 'Syncopate', sans-serif;
+            font-weight: 700; 
+            letter-spacing: 18px;
+            text-transform: uppercase;
+            line-height: 1;
+            margin-bottom: 15px;
+            background: linear-gradient(180deg, #ffffff 0%, #bcbfb6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        p { 
+            font-size: 0.85rem; 
+            margin-bottom: 45px; 
+            color: #8f9aa6; 
+            font-family: 'Noto Sans JP', sans-serif;
+            letter-spacing: 4px;
+            font-weight: 500;
+            opacity: 0.8;
+        }
+        
+        .v-btn { 
+            position: relative;
+            padding: 16px 55px; 
+            font-size: 1.1rem; 
+            background: linear-gradient(90deg, #dc3d4b 0%, #b82e3a 100%); 
+            color: #ece8e1; 
+            border: none;
+            border-radius: 26px; 
+            cursor: pointer; 
+            font-weight: 800; 
+            letter-spacing: 3px;
+            margin: 8px;
+            box-shadow: 0 6px 20px rgba(220, 61, 75, 0.25);
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .v-btn:hover { 
+            background: #ece8e1; 
+            color: #101519; 
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(236, 232, 225, 0.3);
+        }
+
+        .v-btn-secondary {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(236, 232, 225, 0.15);
+            color: #ece8e1;
+            box-shadow: none;
+        }
+        .v-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ece8e1;
+            border-color: #ece8e1;
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            width: 320px;
+        }
+
+        .volume-container {
+            margin-top: 40px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.01) 0%, rgba(255, 255, 255, 0.03) 100%);
+            border: 1px solid rgba(236, 232, 225, 0.06);
+            border-radius: 16px;
+            padding: 16px 28px;
+            width: 320px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .volume-label {
+            font-size: 0.7rem;
+            color: #8f9aa6;
+            font-family: 'Syncopate', sans-serif;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            display: block;
+        }
+        .volume-slider-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .volume-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: rgba(236, 232, 225, 0.12);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%; 
+            background: #dc3d4b;
+            cursor: pointer;
+            box-shadow: 0 0 8px #dc3d4b;
+            transition: transform 0.15s ease;
+        }
+        .volume-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .skin-container {
+            display: flex;
+            gap: 25px;
+            margin-bottom: 50px;
+        }
+        .skin-card {
+            border: 1px solid rgba(236, 232, 225, 0.08);
+            background: linear-gradient(135deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0.03) 100%);
+            border-radius: 16px; 
+            padding: 32px 24px;
+            text-align: center;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            width: 240px;
+        }
+        .skin-card:hover {
+            border-color: rgba(209, 184, 125, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateY(-3px);
+        }
+        .skin-card.active {
+            border-color: #d1b87d; 
+            background: rgba(209, 184, 125, 0.06);
+            box-shadow: 0 12px 30px rgba(209, 184, 125, 0.1), inset 0 0 10px rgba(209, 184, 125, 0.05);
+        }
+        .skin-card span {
+            display: block;
+            font-weight: 700;
+            font-size: 1.05rem;
+            letter-spacing: 2px;
+            color: #8f9aa6;
+        }
+        .skin-card.active span { color: #ece8e1; }
+        .skin-card .tier-tag {
+            font-size: 0.65rem;
+            font-family: 'Syncopate', sans-serif;
+            color: #d1b87d;
+            margin-bottom: 12px;
+            letter-spacing: 2px;
+        }
+    </style></head><body>
+
+    <div id="game-container">
+        <div id="score-board">
+            <div class="board-label">STREAK</div>
+            <span id="current-streak">0</span>
+            <span id="ace-counter">0/5 PERFECT</span>
+            <div class="best-box">
+                <span style="color:#8f9aa6;">RECORD:</span> <span id="best-streak">0</span>
+            </div>
+            <button id="ingame-menu-btn" class="v-btn-mini">MAIN MENU</button>
+        </div>
+
+        <div id="main-menu" class="overlay-screen">
+            <h1>okiaim</h1>
+            <p>REFLEX TRAINING SYSTEM // VERSION 2.7</p>
+            <div class="menu-buttons">
+                <button id="to-game-btn" class="v-btn">ENTER SYSTEM</button>
+                <button id="to-skin-btn" class="v-btn v-btn-secondary">COLLECTION</button>
+            </div>
+
+            <div class="volume-container">
+                <span class="volume-label">VOLUME</span>
+                <div class="volume-slider-wrapper">
+                    <input type="range" id="volume-range" class="volume-slider" min="0" max="100" value="50">
+                    <span id="volume-value" style="font-family:'Teko'; font-size:1.2rem; min-width:35px; text-align:right;">50%</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="skin-screen" class="overlay-screen" style="display: none;">
+            <h1 style="font-size: 3.5rem;">COLLECTION</h1>
+            <p>SELECT ARSENAL PLATFORM</p>
+            
+            <div class="skin-container">
+                <div class="skin-card active" data-skin="1.png">
+                    <div class="tier-tag">PREMIUM</div>
+                    <span>PRIME VANDAL</span>
+                </div>
+                <div class="skin-card" data-skin="2.png">
+                    <div class="tier-tag" style="color: #8f9aa6;">STANDARD</div>
+                    <span>RGX VANDAL</span>
+                </div>
+            </div>
+
+            <button id="back-to-menu-btn" class="v-btn v-btn-secondary" style="font-size: 0.9rem; padding: 10px 40px; border-radius:20px;">RETURN</button>
+        </div>
+
+        <div id="crosshair"></div>
+        <div id="enemy"></div>
+        <div id="wall-left"></div>
+        <div id="wall-right"></div>
+        <div id="weapon-skin"></div>
+    </div>
+
+    <audio id="sound-shoot" src="shoot.mp3" preload="auto"></audio>
+    <audio id="reva-kill-1" src="reva_kill1.mp3" preload="auto"></audio>
+    <audio id="reva-kill-2" src="reva_kill2.mp3" preload="auto"></audio>
+    <audio id="reva-kill-3" src="reva_kill3.mp3" preload="auto"></audio>
+    <audio id="reva-kill-4" src="reva_kill4.mp3" preload="auto"></audio>
+    <audio id="reva-kill-5" src="reva_kill5.mp3" preload="auto"></audio>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const enemy = document.getElementById('enemy');
+        const weaponSkin = document.getElementById('weapon-skin');
+        
+        const mainMenu = document.getElementById('main-menu');
+        const skinScreen = document.getElementById('skin-screen');
+        const scoreBoard = document.getElementById('score-board');
+        
+        const currentStreakTxt = document.getElementById('current-streak');
+        const bestStreakTxt = document.getElementById('best-streak');
+        const aceCounterTxt = document.getElementById('ace-counter');
+        
+        const toGameBtn = document.getElementById('to-game-btn');
+        const toSkinBtn = document.getElementById('to-skin-btn');
+        const backToMenuBtn = document.getElementById('back-to-menu-btn');
+        const ingameMenuBtn = document.getElementById('ingame-menu-btn');
+
+        const volumeRange = document.getElementById('volume-range');
+        const volumeValue = document.getElementById('volume-value');
+        
+        const soundShoot = document.getElementById('sound-shoot');
+        const revaKillSounds = [
+            document.getElementById('reva-kill-1'),
+            document.getElementById('reva-kill-2'),
+            document.getElementById('reva-kill-3'),
+            document.getElementById('reva-kill-4'),
+            document.getElementById('reva-kill-5')
+        ];
+
+        let isEnemyVisible = false;
+        let spawnTimeout = null;
+        let runTimeout = null;
+        let streak = 0;
+        let bestStreak = 0;
+
+        let currentSkinImage = '1.png'; 
+        
+        // 🏃‍♂️ 敵が通り過ぎる時間をさらに遅く（4.2秒 ➔ 6.0秒）に調整しました
+        const FIX_SPEED = 5.5; 
+
+        toGameBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            mainMenu.style.display = 'none';
+            scoreBoard.style.display = 'block';
+            gameContainer.classList.add('ingame-cursor');
+            resetGame();
+        });
+
+        toSkinBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            mainMenu.style.display = 'none';
+            skinScreen.style.display = 'flex';
+        });
+
+        backToMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            skinScreen.style.display = 'none';
+            mainMenu.style.display = 'flex';
+        });
+
+        ingameMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (spawnTimeout) clearTimeout(spawnTimeout);
+            if (runTimeout) clearTimeout(runTimeout);
+            
+            enemy.style.display = 'none';
+            isEnemyVisible = false;
+            
+            gameContainer.classList.remove('ingame-cursor');
+            scoreBoard.style.display = 'none';
+            mainMenu.style.display = 'flex';
+        });
+
+        function updateVolume() {
+            const volume = volumeRange.value / 100;
+            volumeValue.textContent = `${volumeRange.value}%`;
+            
+            soundShoot.volume = volume;
+            revaKillSounds.forEach(sound => {
+                if (sound) sound.volume = volume;
+            });
+        }
+        volumeRange.addEventListener('input', updateVolume);
+        updateVolume();
+
+        const skinCards = document.querySelectorAll('.skin-card');
+        skinCards.forEach(card => {
+            card.addEventListener('click', () => {
+                skinCards.forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                currentSkinImage = card.getAttribute('data-skin');
+                weaponSkin.style.backgroundImage = `url('${currentSkinImage}')`;
+            });
+        });
+
+        function resetGame() {
+            streak = 0;
+            currentStreakTxt.textContent = streak;
+            updateAceCounter();
+            initNextSpawn();
+        }
+
+        gameContainer.addEventListener('mousedown', () => {
+            if (mainMenu.style.display === 'none' && skinScreen.style.display === 'none') {
+                soundShoot.currentTime = 0;
+                soundShoot.play().catch(err => console.log(err));
+            }
+        });
+
+        function updateAceCounter() {
+            const killProgress = streak >= 5 ? 5 : streak;
+            aceCounterTxt.textContent = `${killProgress}/5 PERFECT`;
+        }
+
+        function playKillSound() {
+            let soundIndex = streak - 1;
+            if (soundIndex >= 4) soundIndex = 4;
+            
+            const targetSound = revaKillSounds[soundIndex];
+            if (targetSound) {
+                targetSound.currentTime = 0;
+                targetSound.play().catch(err => console.log(err));
+            }
+        }
+
+        enemy.addEventListener('mousedown', (e) => {
+            e.stopPropagation(); 
+            if (isEnemyVisible) {
+                soundShoot.currentTime = 0;
+                soundShoot.play().catch(err => console.log(err));
+
+                enemy.style.display = 'none';
+                isEnemyVisible = false;
+
+                streak++;
+                currentStreakTxt.textContent = streak;
+                if (streak > bestStreak) {
+                    bestStreak = streak;
+                    bestStreakTxt.textContent = bestStreak;
+                }
+
+                updateAceCounter();
+                playKillSound();
+
+                if (runTimeout) clearTimeout(runTimeout);
+                initNextSpawn();
+            }
+        });
+
+        function initNextSpawn() {
+            if(spawnTimeout) clearTimeout(spawnTimeout);
+            const randomDelay = Math.random() * 800 + 600; 
+            spawnTimeout = setTimeout(() => {
+                spawnAndRun();
+            }, randomDelay);
+        }
+
+        function spawnAndRun() {
+            const fromLeft = Math.random() > 0.5;
+
+            if (fromLeft) {
+                enemy.style.transition = 'none';
+                enemy.style.left = '5%'; 
+                enemy.style.display = 'block';
+                isEnemyVisible = true;
+
+                setTimeout(() => {
+                    if (isEnemyVisible) {
+                        enemy.style.transition = `left ${FIX_SPEED}s linear`;
+                        enemy.style.left = '90%'; 
+                    }
+                }, 50);
+            } else {
+                enemy.style.transition = 'none';
+                enemy.style.left = '90%'; 
+                enemy.style.display = 'block';
+                isEnemyVisible = true;
+
+                setTimeout(() => {
+                    if (isEnemyVisible) {
+                        enemy.style.transition = `left ${FIX_SPEED}s linear`;
+                        enemy.style.left = '5%'; 
+                    }
+                }, 50);
+            }
+
+            if (runTimeout) clearTimeout(runTimeout);
+            runTimeout = setTimeout(() => {
+                if (isEnemyVisible) {
+                    handleMiss();
+                }
+            }, (FIX_SPEED * 1000) + 50);
+        }
+
+        function handleMiss() {
+            enemy.style.display = 'none';
+            isEnemyVisible = false;
+
+            streak = 0;
+            currentStreakTxt.textContent = streak;
+            updateAceCounter();
+
+            gameContainer.classList.remove('miss-effect');
+            void gameContainer.offsetWidth; 
+            gameContainer.classList.add('miss-effect');
+
+            initNextSpawn();
+        }
+    </script></body></html>
+    <!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>okiaim - Leaderboard Edition</title>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        // ⚠️ ここを自分のFirebase設定に書き換える
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // スキン切り替えロジック
+        window.changeSkin = (skin) => {
+            const weaponSkin = document.getElementById('weapon-skin');
+            weaponSkin.style.backgroundImage = `url('${skin}.png')`;
+            // 音声切り替え処理をここに追加
+        };
+
+        // リーダーボード表示（リアルタイム）
+        const q = query(collection(db, "scores"), orderBy("score", "desc"), limit(5));
+        onSnapshot(q, (snapshot) => {
+            const list = document.getElementById('leaderboard-list');
+            list.innerHTML = "";
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                list.innerHTML += `<li>${data.name}: ${data.score}</li>`;
+            });
+        });
+    </script>
+    <style>
+        /* スタイルは前回までのものを適用してください */
+        #leaderboard { position: absolute; top: 100px; right: 20px; color: white; background: rgba(0,0,0,0.5); padding: 10px; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="leaderboard">
+            <h3>TOP 5</h3>
+            <ul id="leaderboard-list"></ul>
+            <p>オンライン: <span id="user-count">1</span>人</p>
+        </div>
+
+        <select id="skin-select" onchange="changeSkin(this.value)">
+            <option value="prime">PRIME</option>
+            <option value="reva">REAVER</option>
+            <option value="vandal">VANDAL</option>
+        </select>
+        
+        <div id="weapon-skin" style="background-image: url('prime.png');"></div>
+        </div>
+</body>
+</html>
+function initNextSpawn() {
+    if(spawnTimeout) clearTimeout(spawnTimeout);
+    
+    // 待ち時間を「0.1秒〜0.3秒」にして、倒した瞬間すぐに出るように調整
+    const randomDelay = Math.random() * 200 + 100; 
+    
+    spawnTimeout = setTimeout(() => {
+        spawnAndRun();
+    }, randomDelay);
+}
